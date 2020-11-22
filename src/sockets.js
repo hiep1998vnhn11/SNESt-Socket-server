@@ -11,6 +11,8 @@ module.exports = (server) => {
   io.on('connection', (socket) => {
     /* eslint-disable no-console */
     console.log(`An Client has connected to server: ${socket.id}`);
-    /* eslint-enable no-console */
+    socket.on('disconnect', () => {
+      console.log(`Client ${socket.id} had disconnected!`);
+    });
   });
 };
