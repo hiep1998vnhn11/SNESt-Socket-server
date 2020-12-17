@@ -1,4 +1,12 @@
 const socketIO = require('socket.io');
+const {
+  addUser,
+  joinRoom,
+  removeUser,
+  getUser,
+  getSocket,
+  getUserInRoom,
+} = require('./user.js');
 
 module.exports = (server) => {
   const io = socketIO(server, {
@@ -8,10 +16,32 @@ module.exports = (server) => {
       credentials: true,
     },
   });
+
   io.on('connection', (socket) => {
     /* eslint-disable no-console */
     console.log(`An Client has connected to server: ${socket.id}`);
+
+    socket.on('login', (userId) => {
+      addUser({ id: socket.id, userId });
+    });
+
+    socket.on('join', ({ userId, roomId }) => {
+      joinRoom({ userId, roomId });
+      socket.join(`room ${roomId}`);
+    });
+
+    socket.on('sendToUser', ({ userId, message }) => {
+      const user = getSocket(userId);
+      if (!user) console.log(`User ${userId} not login!`);
+      else {
+        socket
+          .to(user.id)
+          .emit('receiptMessage', { userId: user.userId, message });
+      }
+    });
+
     socket.on('disconnect', () => {
+      removeUser(socket.id);
       console.log(`Client ${socket.id} had disconnected!`);
     });
   });
