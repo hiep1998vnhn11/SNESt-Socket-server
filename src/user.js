@@ -13,9 +13,8 @@ const addUser = ({ id, userId }) => {
 };
 
 const joinRoom = ({ userId, roomId }) => {
-  const user = users.find((user) => user.userId === userId);
+  const user = users.find((userS) => userS.userId === userId);
   user.rooms.push(roomId);
-  console.log(user);
   return user;
 };
 

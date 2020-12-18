@@ -40,6 +40,26 @@ module.exports = (server) => {
       }
     });
 
+    socket.on('requestAddFriend', ({ userId, requestUserId, data }) => {
+      console.log(
+        `An user ${requestUserId} has been added friend with user ${userId} and data: ${data}`
+      );
+      const user = getSocket(userId);
+      if (user) {
+        socket.to(user.id).emit('responseAddFriend', data);
+      }
+    });
+
+    socket.on('acceptFriend', ({ userId, response }) => {
+      console.log(
+        `An user has been added friend with user ${userId} and data: ${response}`
+      );
+      const user = getSocket(userId);
+      if (user) {
+        socket.to(user.id).emit('acceptFriendNotification', response);
+      }
+    });
+
     socket.on('disconnect', () => {
       removeUser(socket.id);
       console.log(`Client ${socket.id} had disconnected!`);
