@@ -1,4 +1,5 @@
 const socketIO = require('socket.io');
+/* eslint-disable no-unused-vars */
 const {
   addUser,
   joinRoom,
@@ -23,20 +24,23 @@ module.exports = (server) => {
 
     socket.on('login', (userId) => {
       addUser({ id: socket.id, userId });
+      socket.broadcast.emit('userLoggedIn', userId);
     });
 
     socket.on('join', ({ userId, roomId }) => {
       joinRoom({ userId, roomId });
       socket.join(`room ${roomId}`);
     });
-
-    socket.on('sendToUser', ({ userId, message }) => {
+    /* eslint-disable object-curly-newline */
+    socket.on('sendToUser', ({ userId, roomId, message, userName }) => {
       const user = getSocket(userId);
-      if (!user) console.log(`User ${userId} not login!`);
-      else {
-        socket
-          .to(user.id)
-          .emit('receiptMessage', { userId: user.userId, message });
+      if (user) {
+        socket.to(user.id).emit('receiptMessage', {
+          userId: user.userId,
+          roomId,
+          message,
+          userName,
+        });
       }
     });
 
@@ -61,6 +65,10 @@ module.exports = (server) => {
     });
 
     socket.on('disconnect', () => {
+      const user = getUser(socket.id);
+      if (user) {
+        socket.broadcast.emit('userLoggedOut', user.userId);
+      }
       removeUser(socket.id);
       console.log(`Client ${socket.id} had disconnected!`);
     });
