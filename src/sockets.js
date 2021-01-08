@@ -64,6 +64,26 @@ module.exports = (server) => {
       }
     });
 
+    socket.on('likePost', ({ user, post }) => {
+      console.log(
+        `An user ${user.name} had been like user ${post.user_id} post ${post.id}`
+      );
+      const USER = getSocket(post.user_id);
+      if (USER) {
+        socket.to(USER.id).emit('likePost', { user, post });
+      }
+    });
+
+    socket.on('commentPost', ({ user, comment, post }) => {
+      console.log(
+        `An user ${user.name} had been comment user ${post.user_id} post ${post.id}: ${comment.content}`
+      );
+      const USER = getSocket(post.user_id);
+      if (USER) {
+        socket.to(USER.id).emit('commentPost', { user, comment, post });
+      }
+    });
+
     socket.on('disconnect', () => {
       const user = getUser(socket.id);
       if (user) {
