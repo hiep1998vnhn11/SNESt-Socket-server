@@ -1,12 +1,10 @@
 const socketIO = require('socket.io');
 /* eslint-disable no-unused-vars */
 const {
-  addUser,
-  joinRoom,
-  removeUser,
-  getUser,
-  getSocket,
-  getUserInRoom,
+  addUserRedis,
+  removeUserRedis,
+  getUserRedis,
+  getSocketRedis
 } = require('./user.js');
 
 module.exports = (server) => {
@@ -21,19 +19,18 @@ module.exports = (server) => {
   io.on('connection', (socket) => {
     /* eslint-disable no-console */
     console.log(`An Client has connected to server: ${socket.id}`);
-
     socket.on('login', (userId) => {
-      addUser({ id: socket.id, userId });
+      addUserRedis({ id: socket.id, userId });
       socket.broadcast.emit('userLoggedIn', userId);
     });
 
     socket.on('join', ({ userId, roomId }) => {
-      joinRoom({ userId, roomId });
+      // joinRoom({ userId, roomId });
       socket.join(`room ${roomId}`);
     });
     /* eslint-disable object-curly-newline */
     socket.on('sendToUser', ({ userId, roomId, message, userName }) => {
-      const user = getSocket(userId);
+      const user = getSocketRedis(userId);
       if (user) {
         socket.to(user.id).emit('receiptMessage', {
           userId: user.userId,
@@ -48,7 +45,7 @@ module.exports = (server) => {
       console.log(
         `An user ${requestUserId} has been added friend with user ${userId} and data: ${data}`
       );
-      const user = getSocket(userId);
+      const user = getSocketRedis(userId);
       if (user) {
         socket.to(user.id).emit('responseAddFriend', data);
       }
@@ -58,7 +55,7 @@ module.exports = (server) => {
       console.log(
         `An user has been added friend with user ${userId} and data: ${response}`
       );
-      const user = getSocket(userId);
+      const user = getSocketRedis(userId);
       if (user) {
         socket.to(user.id).emit('acceptFriendNotification', response);
       }
@@ -68,7 +65,7 @@ module.exports = (server) => {
       console.log(
         `An user ${user.name} had been like user ${post.user_id} post ${post.id}`
       );
-      const USER = getSocket(post.user_id);
+      const USER = getSocketRedis(post.user_id);
       if (USER) {
         socket.to(USER.id).emit('likePost', { user, post });
       }
@@ -78,18 +75,18 @@ module.exports = (server) => {
       console.log(
         `An user ${user.name} had been comment user ${post.user_id} post ${post.id}: ${comment.content}`
       );
-      const USER = getSocket(post.user_id);
+      const USER = getSocketRedis(post.user_id);
       if (USER) {
         socket.to(USER.id).emit('commentPost', { user, comment, post });
       }
     });
 
     socket.on('disconnect', () => {
-      const user = getUser(socket.id);
-      if (user) {
-        socket.broadcast.emit('userLoggedOut', user.userId);
-      }
-      removeUser(socket.id);
+      // const user = getUserRedis(socket.id);
+      // if (user) {
+      //   socket.broadcast.emit('userLoggedOut', user);
+      // }
+      removeUserRedis(socket.id);
       console.log(`Client ${socket.id} had disconnected!`);
     });
   });
