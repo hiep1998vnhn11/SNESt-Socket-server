@@ -3,8 +3,8 @@ const socketIO = require('socket.io');
 const {
   addUserRedis,
   removeUserRedis,
-  getUserRedis,
-  getSocketRedis
+  getSocketRedis,
+  client
 } = require('./user.js');
 
 module.exports = (server) => {
@@ -26,67 +26,59 @@ module.exports = (server) => {
 
     socket.on('join', ({ userId, roomId }) => {
       // joinRoom({ userId, roomId });
+      client.sismember(`room:${roomId}`, userId);
       socket.join(`room ${roomId}`);
     });
     /* eslint-disable object-curly-newline */
     socket.on('sendToUser', ({ userId, roomId, message, userName }) => {
-      const user = getSocketRedis(userId);
-      if (user) {
-        socket.to(user.id).emit('receiptMessage', {
-          userId: user.userId,
+      client.get(`user:id:${userId}`, (err, value) => {
+        socket.to(value).emit('receiptMessage', {
+          userId: value,
           roomId,
           message,
           userName,
         });
-      }
+      });
     });
 
     socket.on('requestAddFriend', ({ userId, requestUserId, data }) => {
       console.log(
         `An user ${requestUserId} has been added friend with user ${userId} and data: ${data}`
       );
-      const user = getSocketRedis(userId);
-      if (user) {
-        socket.to(user.id).emit('responseAddFriend', data);
-      }
+      client.get(`user:id:${userId}`, (err, value) => {
+        socket.to(value).emit('responseAddFriend', data);
+      });
     });
 
     socket.on('acceptFriend', ({ userId, response }) => {
       console.log(
         `An user has been added friend with user ${userId} and data: ${response}`
       );
-      const user = getSocketRedis(userId);
-      if (user) {
-        socket.to(user.id).emit('acceptFriendNotification', response);
-      }
+      client.get(`user:id:${userId}`, (err, value) => {
+        socket.to(value).emit('acceptFriendNotification', response);
+      });
     });
 
     socket.on('likePost', ({ user, post }) => {
       console.log(
         `An user ${user.name} had been like user ${post.user_id} post ${post.id}`
       );
-      const USER = getSocketRedis(post.user_id);
-      if (USER) {
-        socket.to(USER.id).emit('likePost', { user, post });
-      }
+      client.get(`user:id:${post.user_id}`, (err, value) => {
+        socket.to(value).emit('likePost', { user, post });
+      });
     });
 
     socket.on('commentPost', ({ user, comment, post }) => {
       console.log(
         `An user ${user.name} had been comment user ${post.user_id} post ${post.id}: ${comment.content}`
       );
-      const USER = getSocketRedis(post.user_id);
-      if (USER) {
-        socket.to(USER.id).emit('commentPost', { user, comment, post });
-      }
+      client.get(`user:id:${post.user_id}`, (err, value) => {
+        socket.to(value).emit('commentPost', { user, comment, post });
+      });
     });
 
-    socket.on('disconnect', () => {
-      // const user = getUserRedis(socket.id);
-      // if (user) {
-      //   socket.broadcast.emit('userLoggedOut', user);
-      // }
-      removeUserRedis(socket.id);
+    socket.on('disconnect', async () => {
+      await removeUserRedis(socket.id);
       console.log(`Client ${socket.id} had disconnected!`);
     });
   });
