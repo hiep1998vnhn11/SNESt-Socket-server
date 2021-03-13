@@ -4,8 +4,10 @@ const {
   addUserRedis,
   removeUserRedis,
   getSocketRedis,
-  client
+  client,
 } = require('./user.js');
+
+const { get, set } = require('./redis.js');
 
 module.exports = (server) => {
   const io = socketIO(server, {
@@ -26,7 +28,7 @@ module.exports = (server) => {
 
     socket.on('join', ({ userId, roomId }) => {
       // joinRoom({ userId, roomId });
-      client.sismember(`room:${roomId}`, userId);
+      // client.sismember(`room:${roomId}`, userId);
       socket.join(`room ${roomId}`);
     });
     /* eslint-disable object-curly-newline */
@@ -38,6 +40,25 @@ module.exports = (server) => {
           message,
           userName,
         });
+      });
+    });
+
+    socket.on('join-call', async ({ call_id, user_id }) => {
+      console.log(`an user ${user_id} had just join call ${call_id}`);
+      const response = await get(`user:id:${user_id}`).catch((err) => {
+        console.log(err);
+      });
+      console.log(`socket: ${response}`);
+      console.log(`socket-server: ${socket.id}`);
+    });
+
+    socket.on('create-call', ({ call_id, user_id }) => {
+      console.log(call_id);
+    });
+
+    socket.on('typingUser', ({ userId, roomId, isTyping }) => {
+      client.get(`user:id:${userId}`, (err, value) => {
+        socket.to(value).emit('typing', { roomId, isTyping });
       });
     });
 
