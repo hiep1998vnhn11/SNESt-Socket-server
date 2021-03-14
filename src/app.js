@@ -2,7 +2,7 @@ const express = require('express');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const cors = require('cors');
-const { get, set } = require('./redis');
+const client = require('./redis');
 
 require('dotenv').config();
 
@@ -23,14 +23,13 @@ app.get('/', (req, res) => {
 });
 
 app.get('/:key', async (req, res) => {
-  const message = await get(req.params.key).catch((err) => {
-    if (err) console.error(err);
-  });
+  const message = await client.get(`user:${req.params.key}`);
 
   // send response
   res.send({
     status: 200,
     message,
+    key: req.params.key
   });
 });
 

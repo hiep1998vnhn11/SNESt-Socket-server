@@ -1,13 +1,8 @@
 const socketIO = require('socket.io');
 /* eslint-disable no-unused-vars */
-const {
-  addUserRedis,
-  removeUserRedis,
-  getSocketRedis,
-  client,
-} = require('./user.js');
+const { addUser, removeUser, getUser, getSocket } = require('./user.js');
 
-const { get, set } = require('./redis.js');
+const client = require('./redis');
 
 module.exports = (server) => {
   const io = socketIO(server, {
@@ -22,7 +17,7 @@ module.exports = (server) => {
     /* eslint-disable no-console */
     console.log(`An Client has connected to server: ${socket.id}`);
     socket.on('login', (userId) => {
-      addUserRedis({ id: socket.id, userId });
+      addUser({ id: socket.id, userId });
       socket.broadcast.emit('userLoggedIn', userId);
     });
 
@@ -32,74 +27,126 @@ module.exports = (server) => {
       socket.join(`room ${roomId}`);
     });
     /* eslint-disable object-curly-newline */
-    socket.on('sendToUser', ({ userId, roomId, message, userName }) => {
-      client.get(`user:id:${userId}`, (err, value) => {
-        socket.to(value).emit('receiptMessage', {
-          userId: value,
-          roomId,
-          message,
-          userName,
-        });
+    socket.on('sendToUser', async ({ userId, roomId, message, userName }) => {
+      const socketByUser = await getSocket(userId);
+      socket.to(socketByUser).emit('receiptMessage', {
+        userId,
+        roomId,
+        message,
+        userName,
       });
     });
 
-    socket.on('join-call', async ({ call_id, user_id }) => {
-      console.log(`an user ${user_id} had just join call ${call_id}`);
-      const response = await get(`user:id:${user_id}`).catch((err) => {
-        console.log(err);
-      });
-      console.log(`socket: ${response}`);
-      console.log(`socket-server: ${socket.id}`);
+    socket.on('join-call', async ({ call_id, peer_id, user_id }) => {
+      const call = await client.scard(`call:${call_id}`);
+      if (!call) {
+        socket.emit('call_not_found', call_id);
+      } else {
+        await client.sadd(`call:${call_id}`, peer_id);
+        // create room named call:call_id
+        socket.join(`call:${call_id}`);
+        client.set(`user:${socket.id}:call`, call_id);
+        // broadcast in room a person had join!
+        socket
+          .to(`call:${call_id}`)
+          .broadcast.emit('user-join', { user_id, peer_id });
+      }
+      console.log('join-call');
     });
 
-    socket.on('create-call', ({ call_id, user_id }) => {
-      console.log(call_id);
+    socket.on('create-call', async ({ call_id, user_id, user }) => {
+      const call = await client.scard(`call:${call_id}`);
+      if (!call) {
+        await client.sadd(`call:${call_id}`, user_id);
+        socket.emit('create-call-success');
+        const socketByUser = await getSocket(user_id);
+        if (socketByUser) {
+          socket.to(socketByUser).emit('people-calling', user);
+        }
+      }
+      console.log('create-call');
     });
 
-    socket.on('typingUser', ({ userId, roomId, isTyping }) => {
-      client.get(`user:id:${userId}`, (err, value) => {
-        socket.to(value).emit('typing', { roomId, isTyping });
-      });
+    socket.on('calling', async ({ user_id, user, call_id }) => {
+      const socketByUser = await getSocket(user_id);
+      if (socketByUser) {
+        socket.to(socketByUser).emit('people-calling', { user, call_id });
+        console.log('emit calling');
+      }
     });
 
-    socket.on('requestAddFriend', ({ userId, requestUserId, data }) => {
+    socket.on('end-call', async ({ call_id, user_id, peer_id }) => {
+      socket
+        .to(`call:${call_id}`)
+        .broadcast.emit('user-leave', { user_id, peer_id });
+      await client.del(`user:${socket.id}:call`);
+      console.log('end-call');
+    });
+
+    socket.on('remove-call', async (call_id) => {
+      socket.to(`call:${call_id}`).broadcast.emit('remove-call');
+      await client.del(`call:${call_id}`);
+      console.log('remove-call');
+    });
+
+    socket.on('typingUser', async ({ userId, roomId, isTyping }) => {
+      const socketByUser = await getSocket(userId);
+      if (socketByUser) {
+        socket.to(socketByUser).emit('typing', { roomId, isTyping });
+      }
+    });
+
+    socket.on('requestAddFriend', async ({ userId, requestUserId, data }) => {
       console.log(
         `An user ${requestUserId} has been added friend with user ${userId} and data: ${data}`
       );
-      client.get(`user:id:${userId}`, (err, value) => {
-        socket.to(value).emit('responseAddFriend', data);
-      });
+      const socketByUser = await getSocket(userId);
+      if (socketByUser) {
+        socket.to(socketByUser).emit('responseAddFriend', data);
+      }
     });
 
-    socket.on('acceptFriend', ({ userId, response }) => {
+    socket.on('acceptFriend', async ({ userId, response }) => {
       console.log(
         `An user has been added friend with user ${userId} and data: ${response}`
       );
-      client.get(`user:id:${userId}`, (err, value) => {
-        socket.to(value).emit('acceptFriendNotification', response);
-      });
+
+      const socketByUser = await getSocket(userId);
+      if (socketByUser) {
+        socket.to(socketByUser).emit('acceptFriendNotification', response);
+      }
     });
 
-    socket.on('likePost', ({ user, post }) => {
+    socket.on('likePost', async ({ user, post }) => {
       console.log(
         `An user ${user.name} had been like user ${post.user_id} post ${post.id}`
       );
-      client.get(`user:id:${post.user_id}`, (err, value) => {
-        socket.to(value).emit('likePost', { user, post });
-      });
+      const socketByUser = await getSocket(post.user_id);
+      if (socketByUser) {
+        socket.to(socketByUser).emit('likePost', { user, post });
+      }
     });
 
-    socket.on('commentPost', ({ user, comment, post }) => {
+    socket.on('commentPost', async ({ user, comment, post }) => {
       console.log(
         `An user ${user.name} had been comment user ${post.user_id} post ${post.id}: ${comment.content}`
       );
-      client.get(`user:id:${post.user_id}`, (err, value) => {
-        socket.to(value).emit('commentPost', { user, comment, post });
-      });
+      const socketByUser = await getSocket(post.user_id);
+      if (socketByUser) {
+        socket.to(socketByUser).emit('commentPost', { user, comment, post });
+      }
     });
 
     socket.on('disconnect', async () => {
-      await removeUserRedis(socket.id);
+      const call_id = await client.get(`user:${socket.id}:call`);
+      const user_id = await getUser(socket.id);
+      if (call_id) {
+        socket
+          .to(`call:${call_id}`)
+          .broadcast.emit('user-leave', { user_id, peer_id: null });
+      }
+      await client.del(`user:${socket.id}:call`);
+      removeUser(socket.id);
       console.log(`Client ${socket.id} had disconnected!`);
     });
   });

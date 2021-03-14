@@ -1,23 +1,15 @@
-const client = require('redis').createClient();
-const { promisify } = require('util');
+const redis = require('promise-redis')();
 
-client.on('connect', () => {
-  console.log('Redis client connected');
-});
+const options = process.env.REDIS_PASSWORD
+  ? {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+    password: process.env.REDIS_PASSWORD,
+  }
+  : {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+  };
+const client = redis.createClient(options);
 
-client.on('error', (error) => {
-  console.error(error);
-});
-
-const get = promisify(client.get).bind(client);
-const set = promisify(client.set).bind(client);
-const getList = promisify(client.lrange).bind(client);
-
-const scard = promisify(client.scard).bind(client);
-
-module.exports = {
-  get,
-  set,
-  getList,
-  scard,
-};
+module.exports = client;
