@@ -59,19 +59,32 @@ module.exports = (server) => {
       if (!call) {
         await client.sadd(`call:${call_id}`, user_id);
         socket.emit('create-call-success');
+        console.log(`${user.name} is calling ${user_id} at ${call_id}`);
         const socketByUser = await getSocket(user_id);
         if (socketByUser) {
-          socket.to(socketByUser).emit('people-calling', user);
+          socket.to(socketByUser).emit('people-calling', { user, call_id });
+          console.log('calling ...');
         }
       }
       console.log('create-call');
     });
 
     socket.on('calling', async ({ user_id, user, call_id }) => {
+      console.log(`${user.name} is calling ${user_id} at ${call_id}`);
       const socketByUser = await getSocket(user_id);
       if (socketByUser) {
         socket.to(socketByUser).emit('people-calling', { user, call_id });
         console.log('emit calling');
+      }
+    });
+
+    socket.on('refuse-call', async ({ user_id, call_id }) => {
+      const socketByUser = await getSocket(user_id);
+      if (socketByUser) {
+        socket
+          .to(socketByUser)
+          .emit('people-refuse-call', { user_id, call_id });
+        console.log('refuse-call');
       }
     });
 
@@ -87,6 +100,13 @@ module.exports = (server) => {
       socket.to(`call:${call_id}`).broadcast.emit('remove-call');
       await client.del(`call:${call_id}`);
       console.log('remove-call');
+    });
+
+    socket.on('cancel-call', async ({ call_id, user_id }) => {
+      const socketByUser = await getSocket(user_id);
+      if (socketByUser) {
+        socket.to(socketByUser).emit('people-cancel-call', call_id);
+      }
     });
 
     socket.on('typingUser', async ({ userId, roomId, isTyping }) => {
@@ -146,6 +166,7 @@ module.exports = (server) => {
           .broadcast.emit('user-leave', { user_id, peer_id: null });
       }
       await client.del(`user:${socket.id}:call`);
+      await client.del(`call:${call_id}`);
       removeUser(socket.id);
       console.log(`Client ${socket.id} had disconnected!`);
     });
