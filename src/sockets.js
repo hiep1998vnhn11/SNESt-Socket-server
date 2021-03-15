@@ -7,7 +7,7 @@ const client = require('./redis');
 module.exports = (server) => {
   const io = socketIO(server, {
     cors: {
-      origin: 'http://localhost:8080',
+      origin: '*',
       methods: ['GET', 'POST'],
       credentials: true,
     },
