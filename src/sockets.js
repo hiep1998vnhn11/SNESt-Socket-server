@@ -7,7 +7,7 @@ const client = require('./redis');
 module.exports = (server) => {
   const io = socketIO(server, {
     cors: {
-      origin: 'http://localhost:8080',
+      origin: 'https://localhost:8080',
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -16,6 +16,9 @@ module.exports = (server) => {
   io.on('connection', (socket) => {
     /* eslint-disable no-console */
     console.log(`An Client has connected to server: ${socket.id}`);
+    socket.on('error', (err) => {
+      console.log(err);
+    });
     socket.on('login', (userId) => {
       addUser({ id: socket.id, userId });
       socket.broadcast.emit('userLoggedIn', userId);
