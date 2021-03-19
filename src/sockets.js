@@ -27,22 +27,22 @@ module.exports = (server) => {
       socket.join(`room ${roomId}`);
     });
     /* eslint-disable object-curly-newline */
-    socket.on('sendToUser', async ({ userId, roomId, message, userName }) => {
+    socket.on('sendToUser', async ({ userId, roomId, message, user }) => {
       const socketByUser = await getSocket(userId);
       socket.to(socketByUser).emit('receiptMessage', {
         userId,
         roomId,
         message,
-        userName,
+        user,
       });
     });
 
-    socket.on('join-call', async ({ call_id, peer_id, user_id }) => {
+    socket.on('join-call', async ({ call_id, user_id, peer_id }) => {
       const call = await client.scard(`call:${call_id}`);
       if (!call) {
         socket.emit('call_not_found', call_id);
       } else {
-        await client.sadd(`call:${call_id}`, peer_id);
+        await client.sadd(`call:${call_id}`, user_id);
         // create room named call:call_id
         socket.join(`call:${call_id}`);
         client.set(`user:${socket.id}:call`, call_id);
@@ -51,7 +51,6 @@ module.exports = (server) => {
           .to(`call:${call_id}`)
           .broadcast.emit('user-join', { user_id, peer_id });
       }
-      console.log('join-call');
     });
 
     socket.on('create-call', async ({ call_id, user_id, user }) => {
@@ -88,10 +87,8 @@ module.exports = (server) => {
       }
     });
 
-    socket.on('end-call', async ({ call_id, user_id, peer_id }) => {
-      socket
-        .to(`call:${call_id}`)
-        .broadcast.emit('user-leave', { user_id, peer_id });
+    socket.on('end-call', async ({ call_id, user_id }) => {
+      socket.to(`call:${call_id}`).broadcast.emit('user-leave', { user_id });
       await client.del(`user:${socket.id}:call`);
       console.log('end-call');
     });
@@ -161,9 +158,7 @@ module.exports = (server) => {
       const call_id = await client.get(`user:${socket.id}:call`);
       const user_id = await getUser(socket.id);
       if (call_id) {
-        socket
-          .to(`call:${call_id}`)
-          .broadcast.emit('user-leave', { user_id, peer_id: null });
+        socket.to(`call:${call_id}`).broadcast.emit('user-leave', { user_id });
       }
       await client.del(`user:${socket.id}:call`);
       await client.del(`call:${call_id}`);

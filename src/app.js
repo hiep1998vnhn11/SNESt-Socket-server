@@ -13,7 +13,7 @@ const app = express();
 
 app.use(morgan('dev'));
 app.use(helmet());
-app.use(cors({ origin: 'https://localhost:8080' }));
+app.use(cors({ origin: ['https://localhost:8080', 'http://localhost:8080'] }));
 app.use(express.json());
 
 app.get('/', (req, res) => {
@@ -29,7 +29,7 @@ app.get('/:key', async (req, res) => {
   res.send({
     status: 200,
     message,
-    key: req.params.key
+    key: req.params.key,
   });
 });
 
