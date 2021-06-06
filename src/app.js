@@ -13,7 +13,15 @@ const app = express();
 
 app.use(morgan('dev'));
 app.use(helmet());
-app.use(cors({ origin: ['https://localhost:8080', 'http://localhost:8080'] }));
+app.use(
+  cors({
+    origin: [
+      'https://localhost:8080',
+      'http://localhost:8080',
+      'https://localhost',
+    ],
+  })
+);
 app.use(express.json());
 
 app.get('/', (req, res) => {

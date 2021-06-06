@@ -37,6 +37,89 @@ module.exports = (server) => {
       });
     });
 
+    // user_id = post.user.id
+    socket.on('join-post', ({ postId }) => {
+      socket.join(`post:${postId}`);
+    });
+
+    socket.on('join-post-notification', ({ postId }) => {
+      socket.join(`post:${postId}:notification`);
+    });
+
+    socket.on('leave-post', ({ postId }) => {
+      socket.leave(`post:${postId}`);
+    });
+
+    socket.on(
+      'comment-post',
+      async ({ postId, user, comment, userId, notification }) => {
+        const socketByUserPost = await getSocket(userId);
+        if (socketByUserPost) {
+          socket.to(socketByUserPost).emit('your-post-comment-notification', {
+            postId,
+            comment,
+            user,
+            notification,
+          });
+        }
+        // Emit to current post notification, when user display comment
+        socket.to(`post:${postId}`).broadcast.emit('post-comment', {
+          postId,
+          user,
+          comment,
+        });
+
+        socket
+          .to(`post:${postId}:notification`)
+          .broadcast.emit('post-comment-notification', {
+            postId,
+            user,
+            comment,
+            notification,
+          });
+      }
+    );
+
+    socket.on('commenting-post', async ({ postId }) => {
+      // Emit to current post notification, when user display comment
+      socket.to(`post:${postId}`).broadcast.emit('post-commenting');
+    });
+
+    socket.on('commented-post', async ({ postId }) => {
+      // Emit to current post notification, when user display comment
+      socket.to(`post:${postId}`).broadcast.emit('post-commented');
+    });
+
+    socket.on(
+      'like-post',
+      async ({ postId, user, comment, userId, notification }) => {
+        const socketByUserPost = await getSocket(userId);
+        if (socketByUserPost) {
+          socket.to(socketByUserPost).emit('your-post-like-notification', {
+            postId,
+            comment,
+            user,
+            notification,
+          });
+        }
+
+        socket.to(`post:${postId}`).broadcast.emit('post-like', {
+          postId,
+          user,
+          comment,
+        });
+
+        socket
+          .to(`post:${postId}:notification`)
+          .broadcast.emit('post-like-notification', {
+            postId,
+            user,
+            comment,
+            notification,
+          });
+      }
+    );
+
     socket.on('join-call', async ({ call_id, user_id, peer_id }) => {
       const call = await client.scard(`call:${call_id}`);
       if (!call) {
@@ -113,13 +196,10 @@ module.exports = (server) => {
       }
     });
 
-    socket.on('requestAddFriend', async ({ userId, requestUserId, data }) => {
-      console.log(
-        `An user ${requestUserId} has been added friend with user ${userId} and data: ${data}`
-      );
+    socket.on('requestAddFriend', async ({ userId, userRequest }) => {
       const socketByUser = await getSocket(userId);
       if (socketByUser) {
-        socket.to(socketByUser).emit('responseAddFriend', data);
+        socket.to(socketByUser).emit('people-requesting-friend', userRequest);
       }
     });
 
@@ -135,22 +215,18 @@ module.exports = (server) => {
     });
 
     socket.on('likePost', async ({ user, post }) => {
-      console.log(
-        `An user ${user.name} had been like user ${post.user_id} post ${post.id}`
-      );
       const socketByUser = await getSocket(post.user_id);
       if (socketByUser) {
-        socket.to(socketByUser).emit('likePost', { user, post });
+        socket.to(socketByUser).emit('people-like-post', { user, post });
       }
     });
 
     socket.on('commentPost', async ({ user, comment, post }) => {
-      console.log(
-        `An user ${user.name} had been comment user ${post.user_id} post ${post.id}: ${comment.content}`
-      );
       const socketByUser = await getSocket(post.user_id);
       if (socketByUser) {
-        socket.to(socketByUser).emit('commentPost', { user, comment, post });
+        socket
+          .to(socketByUser)
+          .emit('user-comment-post', { user, comment, post });
       }
     });
 
